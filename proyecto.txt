@@ -1,0 +1,65 @@
+procesos
+semaforos/mutex
+hilos
+memoria compartida:
+colas:
+senales:
+temporizadores:
+
+
+sockets:    cliente <-> servidor <-> esclavos
+
+
+servidor:
+    
+    Proceso que registra esclavos 
+    
+    	-> Hijo:
+	    	- Poll: arreglo de sockets (esclavos) 
+	        - Aumentar cantidad esclavos
+	        - Agregar en el arreglo de libres 0 en la misma posición en la que se guardo el esclavo
+	        
+	    -> Padre: (siempre esta escuchando si un esclavo se conecta)
+
+/*	
+	Proceso que registra clientes (siempre esta escuchando si un cliente se conecta)
+    
+    	-> Poll: arreglo de sockets (clientes) 
+        -> Modificar cantidad clientes
+*/
+
+    Proceso escuchando al cliente 
+    	
+        -> Revise si hay un esclavo libre
+        	-si(cantidad esclavos > 0)
+        		* Asigna la tarea al primer esclavo libre 
+        			+ Busca en arreglo de libres la primera pos libre la cambia a 1
+        			+ Selecciona en el arreglo de sockets (esclavos) el de la pos libre
+        		* fork: Proceso que se encarga del esclavo 
+		        	+ Hijo:
+		        		Envía tarea a correr al esclavo
+		        		Espera por la respuesta del esclavo
+		        		Manda la respuesta al cliente
+		        		muere el hijo
+		        	+ Padre: 
+		        		continue (Continua escuchando al cliente para que pueda mandar otra tarea)
+        	-DLC 
+        		mensaje ("no hay esclavos libres")
+
+        -> Si el cliente termina cerrar todas las conexiones (?)
+           
+    Proceso que se encarga de los esclavos que terminan
+        -> Si un esclavo termina (?)
+    		- Cerrar conexión  (Detectar si un esclavo terminó la conexión) (?)
+    		- Sacar al esclavo del arreglo de sockets (esclavos) 
+        	- Disminuir cantidad de esclavos
+    
+    Memoria compartida:
+    	/*	cantidad de clientes
+    		arreglo de sockets (clientes)
+    	*/ 
+        -> Cantidad de esclavos
+        -> Arreglo de libres
+        -> Arreglo de sockets (esclavos)
+    	
+
