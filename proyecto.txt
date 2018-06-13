@@ -29,7 +29,8 @@ servidor:
 */
 
     Proceso escuchando al cliente 
-    	
+    	-> Encargarse de conectar al cliente
+
         -> Revise si hay un esclavo libre
         	-si(cantidad esclavos > 0)
         		* Asigna la tarea al primer esclavo libre 
@@ -63,3 +64,8 @@ servidor:
         -> Arreglo de sockets (esclavos)
     	
 
+ver:
+
+https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_71/rzab6/poll.htm
+https://www.binarytides.com/multiple-socket-connections-fdset-select-linux/
+http://man7.org/linux/man-pages/man2/poll.2.html

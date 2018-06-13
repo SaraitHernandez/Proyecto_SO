@@ -11,20 +11,9 @@
 #include <sys/shm.h>
 #include <netdb.h>
 
-
-
 int conexionServidor, conexionCliente, conexionCliente2;
 
-void signalExit(int i) {
-    close(conexionCliente);
-    close(conexionServidor);
-    int id_queue;
-    key_t key_q = ftok(".", 420);
-    if((id_queue = msgget(key_q, 0)) != -1) 
-      msgctl(key_q, IPC_RMID, 0);
-    exit(EXIT_SUCCESS);
-}
-
+void signalExit(int );
 
 int main(int argc, char **argv)
 {
@@ -40,10 +29,11 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  int puerto, id_queue, client=1;
+  int puerto, process_pid[4];
+  pid_t process;
   socklen_t longCliente;
   struct sockaddr_in servidor, cliente;
-  char buffer[200], buffer2[200];
+  char buffer[200];
   puerto = atoi(argv[1]);
   
   /*
@@ -68,63 +58,78 @@ int main(int argc, char **argv)
   }
 
   /*
-  * Escuchando ...
+  * Procesos encargados de: escuchar esclavos, escuchar al cliente, proceso encargado de los hijos que terminan
   */
-  listen(conexionServidor, 2);
 
-  printf("Esperando, puerto: %d\n", ntohs(servidor.sin_port));
+  process_pid[0] = getpid();
 
-  longCliente = sizeof(cliente);
-  
-  if((conexionCliente = accept(conexionServidor, (struct sockaddr *)&cliente, &longCliente)) < 0)
-  { 
-    printf("Error conexion \n");
-    close(conexionServidor);
-    return 1;
-  }else{
-    send(conexionCliente, "cliente1", 15, 0); client = 0;
-  }
-
-  if((conexionCliente = accept(conexionServidor, (struct sockaddr *)&cliente, &longCliente)) < 0)
-  { 
-    printf("Error conexion \n");
-    close(conexionServidor);
-    return 1;
-  }else
-    send(conexionCliente, " ", 15, 0), printf("aqui");;
-  
-  /*Envío de mensajes*/
-
-  while(1)
+  for(i=1; i <=3; i++)
   {
-      
-    if(client == 0)
+    process = fork();
+    if (!process)
     {
-      if(recv(conexionCliente, buffer, 200, 0) < 0)
-      {
-        printf("Error\n");
-        close(conexionServidor);
-        return -1;
-      }else
-      {
-        send(conexionCliente2, buffer, 200, 0);
-        bzero((char *)&buffer, sizeof(buffer));
-      }
-    }else 
-    {
-      if(recv(conexionCliente2, buffer, 200, 0) < 0)
-      {
-        printf("Error\n");
-        close(conexionServidor);
-        return -1;
-      }else{
-        send(conexionCliente, buffer, 200, 0);
-        bzero((char *)&buffer, sizeof(buffer));
-      }
-    }        
+      process_pid[i] = getpid();
+      break;
+    }else
+      continue;  
   }
+
+  /*
+  * Escuchar esclavos 
+  */
+  
+  if (getpid() == process_pid[1]) 
+  {
+    esclavo = fork();
+    while(1)
+    {
+
+
+
+    }
+
+  }
+
+
+  /*
+  * Escuchar cliente 
+  */
+  
+  else if (getpid() == process_pid[2]) 
+  {
+
+  }
+ 
+
+  /*
+  * Escuchar escalvos que terminan (?) 
+  */
+  
+  else if (getpid() == process_pid[3]) 
+  {
+
+  }
+
+  /*
+  * Padre : espera a todos los hijos terminen, libera recursos y ...(?)
+  */
+  else
+  {
+
+
+  } 
+
 
   return 0;  
 }
 
 
+void signalExit(int i) {
+    close(conexionCliente);
+    close(conexionServidor);
+    int id_queue;
+    key_t key_q = ftok(".", 420);
+    if((id_queue = msgget(key_q, 0)) != -1) 
+      msgctl(key_q, IPC_RMID, 0);
+    exit(EXIT_SUCCESS);
+}
