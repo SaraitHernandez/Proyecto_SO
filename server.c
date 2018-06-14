@@ -10,58 +10,95 @@
 #include <sys/msg.h>
 #include <sys/shm.h>
 #include <netdb.h>
+#include <sys/ioctl.h>
+#include <sys/poll.h>
+#include <sys/time.h>
+#include <netinet/in.h>
+#include <errno.h>
 
-int conexionServidor, conexionCliente, conexionCliente2;
-
-void signalExit(int );
 
 int main(int argc, char **argv)
 {
 
-  signal(SIGINT, signalExit);   // SIGINT
-  signal(SIGQUIT, signalExit); // SIGQUIT
-  signal(SIGSTOP, signalExit);  // SIGTSTOP
-  signal(SIGKILL, signalExit);
-     
+
   if(argc<2)
   {
     printf("%s [puerto]\n",argv[0]);
     return 1;
   }
 
-  int puerto, process_pid[4];
+  int puerto, process_pid[4], rc, on = 1;
+  int listen_sd = -1, new_sd = -1, timeout;
   pid_t process;
   socklen_t longCliente;
   struct sockaddr_in servidor, cliente;
+  struct pollfd fds[5];
+  int nfds = 1, current_size = 0, i, j;
   char buffer[200];
   puerto = atoi(argv[1]);
   
   /*
   * Asignacion -> socket
   */
-  conexionServidor = socket(AF_INET, SOCK_STREAM, 0);
+  if ((listen_sd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+  {
+    perror("socket() failed");
+    exit(-1);
+  }
 
-  bzero((char *)&servidor, sizeof(servidor));
+  /*
+  * Socket descriptor reutilizable
+  */
+  if ((rc = setsockopt(listen_sd, SOL_SOCKET,  SO_REUSEADDR,
+                  (char *)&on, sizeof(on))) < 0)
+  {
+    perror("setsockopt() failed");
+    close(listen_sd);
+    exit(-1);
+  }
 
-  servidor.sin_family = AF_INET;
-  servidor.sin_port = htons(puerto);
-  servidor.sin_addr.s_addr = INADDR_ANY; //Macro -> Propia Direccion
+  /*
+  * Socket no bloqueante 
+  */
+  if((rc = ioctl(listen_sd, FIONBIO, (char *)&on)) < 0)
+  {
+    perror("ioctl() failed");
+    close(listen_sd);
+    exit(-1);
+  }
 
   /*
   * Asignacion -> socket a puerto
   */
-  if(bind(conexionServidor, (struct sockaddr *)&servidor, sizeof(servidor)) < 0)
+  bzero((char *)&servidor, sizeof(servidor));
+  servidor.sin_family = AF_INET;
+  servidor.sin_port = htons(puerto);
+  servidor.sin_addr.s_addr = INADDR_ANY; //Macro -> Propia Direccion
+
+  if(bind(listen_sd, (struct sockaddr *)&servidor, 
+          sizeof(servidor)) < 0)
   {
-    printf("Error socket a\n");
-    close(conexionServidor);
-    return 1;
+    perror("bind() failed");
+    close(listen_sd);
+    exit(-1);
   }
 
   /*
-  * Procesos encargados de: escuchar esclavos, escuchar al cliente, proceso encargado de los hijos que terminan
+  * Eschuchar
   */
+  if ((rc = listen(listen_sd, 5)) < 0)
+  {
+    perror("listen() failed");
+    close(listen_sd);
+    exit(-1);
+  }
 
-  process_pid[0] = getpid();
+  /*
+  * Procesos encargados de: escuchar esclavos, 
+  *escuchar al cliente, proceso encargado de 
+  *los hijos que terminan
+  */
+ /* process_pid[0] = getpid();
 
   for(i=1; i <=3; i++)
   {
@@ -72,64 +109,88 @@ int main(int argc, char **argv)
       break;
     }else
       continue;  
-  }
+  } */
 
   /*
   * Escuchar esclavos 
   */
   
-  if (getpid() == process_pid[1]) 
-  {
-    esclavo = fork();
-    while(1)
+  //if (getpid() == process_pid[1]) 
+  //{
+    /*
+    * Inicializar estructura pollfd 
+    */
+    memset(fds, 0 , sizeof(fds));
+    fds[0].fd = listen_sd;
+    fds[0].events = POLLIN; 
+    timeout = (3 * 60 * 1000);
+
+    /*
+    *  Registrar esclavos 
+    */
+    do
     {
+      printf("Waiting on poll()...\n");
+      if ((rc = poll(fds, nfds, timeout)) < 0)
+      {
+        perror("  poll() failed");
+        break;
+      }
+      if (rc == 0)
+      {
+        printf("  poll() timed out.  End program.\n");
+        break;
+      }
 
+    current_size = nfds;
+    
+    for (i = 0; i < current_size; i++)
+    {
+      if(fds[i].revents == 0)
+        continue;
 
+      if(fds[i].revents != POLLIN)
+      {
+        printf("  Error! revents = %d\n", fds[i].revents);
+        break;
+      }
 
+      if (fds[i].fd == listen_sd)
+      {
+
+        printf("  Listening socket is readable\n");
+        do
+        {
+          if((new_sd = accept(listen_sd, NULL, NULL)) < 0)
+          {
+            if (errno != EWOULDBLOCK)
+            {
+              perror("  accept() failed");
+            }
+            break;
+          }
+
+          printf("  New incoming connection - %d\n", new_sd);
+          fds[nfds].fd = new_sd;
+          fds[nfds].events = POLLIN;
+          nfds++;
+
+        }while (new_sd != -1);
+      }
+    }
+  }while(nfds != 5);
+
+    for (i = 0; i < nfds; i++)
+    {
+      if(fds[i].fd >= 0){
+        printf("file descriptor[%d]: %d\n", i, fds[i].fd);
+        close(fds[i].fd);
+      }
     }
 
-  }
-
-
-  /*
-  * Escuchar cliente 
-  */
-  
-  else if (getpid() == process_pid[2]) 
-  {
-
-  }
- 
-
-  /*
-  * Escuchar escalvos que terminan (?) 
-  */
-  
-  else if (getpid() == process_pid[3]) 
-  {
-
-  }
-
-  /*
-  * Padre : espera a todos los hijos terminen, libera recursos y ...(?)
-  */
-  else
-  {
-
-
-  } 
-
+ // }
 
   return 0;  
 }
 
 
-void signalExit(int i) {
-    close(conexionCliente);
-    close(conexionServidor);
-    int id_queue;
-    key_t key_q = ftok(".", 420);
-    if((id_queue = msgget(key_q, 0)) != -1) 
-      msgctl(key_q, IPC_RMID, 0);
-    exit(EXIT_SUCCESS);
-}
