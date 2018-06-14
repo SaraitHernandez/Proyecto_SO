@@ -96,7 +96,7 @@ main (int argc, char *argv[])
   /* Set up the initial listening socket                        */
   /*************************************************************/
   fds[0].fd = listen_sd;
-  fds[0].events = POLLIN;
+  fds[0].events = POLLIN; 
   /*************************************************************/
   /* Initialize the timeout to 3 minutes. If no                */
   /* activity after 3 minutes this program will end.           */
@@ -145,7 +145,10 @@ main (int argc, char *argv[])
       /*********************************************************/
       /* Loop through to find the descriptors that returned    */
       /* POLLIN and determine whether it's the listening       */
-      /* or the active connection.                             */
+      /* or the active connection.    
+      Recorra a ver los descriptores que regresaron Pollin 
+      y determine si es una nueva conexion o 
+      una existente                         */
       /*********************************************************/
       if(fds[i].revents == 0)
         continue;
@@ -164,7 +167,7 @@ main (int argc, char *argv[])
       if (fds[i].fd == listen_sd)
       {
         /*******************************************************/
-        /* Listening descriptor is readable.                   */
+        /* Listening descriptor is readable. si un socket se quiere conectar              */
         /*******************************************************/
         printf("  Listening socket is readable\n");
 
@@ -211,7 +214,7 @@ main (int argc, char *argv[])
 
       /*********************************************************/
       /* This is not the listening socket, therefore an        */
-      /* existing connection must be readable                  */
+      /* existing connection must be readable, verifique si alguna conexion escrbio algo                  */
       /*********************************************************/
 
       else

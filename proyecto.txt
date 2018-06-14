@@ -69,3 +69,33 @@ ver:
 https://www.ibm.com/support/knowledgecenter/ssw_ibm_i_71/rzab6/poll.htm
 https://www.binarytides.com/multiple-socket-connections-fdset-select-linux/
 http://man7.org/linux/man-pages/man2/poll.2.html
+
+
+
+ /*
+  * Escuchar cliente 
+  */
+  
+  else if (getpid() == process_pid[2]) 
+  {
+
+  }
+ 
+
+  /*
+  * Escuchar escalvos que terminan (?) 
+  */
+  
+  else if (getpid() == process_pid[3]) 
+  {
+
+  }
+
+  /*
+  * Padre : espera a todos los hijos terminen, libera recursos y ...(?)
+  */
+  else
+  {
+
+
+  } 
