@@ -65,12 +65,28 @@ int main(int argc, char **argv)
   char *a;
 
   a = inet_ntoa(cliente.sin_addr);
+
   printf("Conexion con -> %s:%d\n", a,htons(cliente.sin_port));
   recv(conexion, buffer, 200, 0);
-  printf("Mensaje del servidor %s", buffer);
-       
  
-        while(1);
+  while(1){
+      recv(conexion, buffer, 200, 0);
+      if (strncmp(buffer, "cliente", 8)==0){
+        printf("Mensaje cliente 1: ");
+        fgets(buffer, 200, stdin);
+        send(conexion, buffer, 200, 0);
+        bzero(buffer, 200);
+        //printf("Mensaje recibido: ");
+        //recv(conexion, buffer, 200, 0);
+      }else{
+        printf("Mensaje recibido: ");
+        recv(conexion, buffer, 200, 0);
+        bzero(buffer, 200);
+        //printf("Mensaje cliente 2: ");
+        ///fgets(buffer, 200, stdin);
+        //send(conexion, buffer, 200, 0);
+      }
+  }    
 
   return 0;
 }
