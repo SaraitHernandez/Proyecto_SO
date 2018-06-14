@@ -11,7 +11,7 @@
 #include <sys/shm.h>
 #include <netdb.h>
 
-int conexionServidor, conexionCliente, conexionCliente2;
+int conexionServidor, conexionEsclavo[4];
 
 void signalExit(int );
 
@@ -29,7 +29,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  int puerto, process_pid[4];
+  int puerto, process_pid[4], i=0;
   pid_t process;
   socklen_t longCliente;
   struct sockaddr_in servidor, cliente;
@@ -47,6 +47,8 @@ int main(int argc, char **argv)
   servidor.sin_port = htons(puerto);
   servidor.sin_addr.s_addr = INADDR_ANY; //Macro -> Propia Direccion
 
+
+
   /*
   * Asignacion -> socket a puerto
   */
@@ -57,9 +59,12 @@ int main(int argc, char **argv)
     return 1;
   }
 
+  listen(conexionServidor, 10);
+
+
   /*
   * Procesos encargados de: escuchar esclavos, escuchar al cliente, proceso encargado de los hijos que terminan
-  */
+  
 
   process_pid[0] = getpid();
 
@@ -78,22 +83,47 @@ int main(int argc, char **argv)
   * Escuchar esclavos 
   */
   
-  if (getpid() == process_pid[1]) 
-  {
-    esclavo = fork();
-    while(1)
+ // if (getpid() == process_pid[1]) 
+  //{
+
+    while(i != 4)
     {
 
 
+      printf("Esperando, puerto: %d\n", ntohs(servidor.sin_port));
 
+      longCliente = sizeof(cliente);
+      
+      if((conexionEsclavo[i] = accept(conexionServidor, (struct sockaddr *)&cliente, &longCliente)) < 0)
+      { 
+        printf("Error conexion \n");
+        close(conexionServidor);
+        return 1;
+      }else{
+        printf("conexion: %d  esclavo %d\n", i, conexionEsclavo[i]);
+        if(send(conexionEsclavo[i],"conectado", 15, 0) < 0) 
+        {   
+          printf("Error enviando mensaje \n");
+          close(conexionServidor);
+          return 1;
+         
+        }
+         i++;
+      }
     }
 
-  }
+    i=0;
+    while(i != 4)
+    {
+        send(conexionEsclavo[i],"msj 2", 15, 0), i++;
+    }
+
+//  }
 
 
   /*
   * Escuchar cliente 
-  */
+  
   
   else if (getpid() == process_pid[2]) 
   {
@@ -103,7 +133,7 @@ int main(int argc, char **argv)
 
   /*
   * Escuchar escalvos que terminan (?) 
-  */
+  
   
   else if (getpid() == process_pid[3]) 
   {
@@ -112,20 +142,20 @@ int main(int argc, char **argv)
 
   /*
   * Padre : espera a todos los hijos terminen, libera recursos y ...(?)
-  */
+  
   else
   {
 
 
   } 
 
-
+  */
   return 0;  
 }
 
 
 void signalExit(int i) {
-    close(conexionCliente);
+    close(conexionEsclavo[0]);
     close(conexionServidor);
     int id_queue;
     key_t key_q = ftok(".", 420);
