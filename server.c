@@ -21,6 +21,7 @@
 #include <netinet/in.h>
 
 #include "server.h"
+int timeout = (3 * 60 * 1000);
 
 
 int main(int argc, char **argv)
@@ -31,9 +32,12 @@ int main(int argc, char **argv)
     printf("%s [puerto]\n",argv[0]);
     return 1;
   }
+   int    len ;
 
+  int    desc_ready, end_server = 0, compress_array = 0;
+  int    close_conn;
   int puerto, process_pid[4], rc, on = 1;
-  int listen_sd = -1, new_sd = -1, timeout;
+  int listen_sd = -1, new_sd = -1;
   int current_size = 0, i, j;
   pid_t process;
   socklen_t longCliente;
@@ -128,38 +132,18 @@ int main(int argc, char **argv)
   *escuchar al cliente, proceso encargado de 
   *los hijos que terminan
   */
-  /*
-  process_pid[0] = getpid();
-
-  for(i=1; i <=3; i++)
-  {
-    process = fork();
-    if (!process)
-    {
-      process_pid[i] = getpid();
-      break;
-    }else
-      continue;  
-  } 
-
-  /*
-  * Escuchar esclavos 
-  */
-  process = fork();
-  if (!process) 
-  {
     /*
     * Inicializar estructura pollfd 
     */
     memset(esclavos->fds, 0 , sizeof(esclavos->fds));
     esclavos->fds[0].fd = listen_sd; //servidor
     esclavos->fds[0].events = POLLIN; 
-    timeout = (3 * 60 * 1000);
+    
 
     /*
     *  Poll conexion de esclavos 
     */
-    while(esclavos->nfds != 200)
+    do
     {
       if ((rc = poll(esclavos->fds, esclavos->nfds, timeout)) < 0)
       {
@@ -201,50 +185,77 @@ int main(int argc, char **argv)
             esclavos->nfds_dsp++;
             esclavos->dsp[i] = 0;
           }while (new_sd != -1);
-        }
-      }
-    }
-  }else 
-  {
-    while(1)
-    {
-
-      i = 2;
-      if (esclavos->fds[1].fd == listen_sd)
-      {  
-        do
+        }else
         {
-          send(esclavos->fds[1].fd, "Cliente", 200, 0);
-          rc = recv(esclavos->fds[1].fd, buffer, sizeof(buffer), 0);
-          if (rc < 0)
+          printf("  Descriptor %d is readable\n", esclavos->fds[i].fd);
+          close_conn = 0;
+          do
           {
-            if (errno != EWOULDBLOCK)
+            rc = recv(esclavos->fds[i].fd, buffer, sizeof(buffer), 0);
+            printf(" Buffer:  %s\n", buffer);
+            if (rc < 0)
             {
-              perror("  recv() failed");
+              if (errno != EWOULDBLOCK)
+              {
+                perror("  recv() failed");
+                close_conn = 1;
+              }
+              break;
             }
-            break;
-          }
 
-          if (rc == 0)
-          {
-            printf("  Connection closed\n");
-            break;
-          }
+            if (rc == 0)
+            {
+              printf("  Connection closed\n");
+              close_conn = 1;
+              break;
+            }
 
-          for(i = 2; i < esclavos->nfds; i++)
-          { 
-            rc = send(esclavos->fds[i].fd, buffer, 200, 0);
+            len = rc;
+            printf("  %d bytes received\n", len);
+
+            rc = send(esclavos->fds[i].fd, "hola", len, 0);
             if (rc < 0)
             {
               perror("  send() failed");
+              close_conn = 1;
               break;
             }
+          } while(1);
+      
+          if (close_conn)
+          {
+            close(esclavos->fds[i].fd);
+            esclavos->fds[i].fd = -1;
+            compress_array = 1;
           }
-        } while(1);
-      }     
-      sleep(10);
-    }  
-  }
+        }  
+        
+        if (compress_array)
+        {
+          compress_array = 0;
+          for (i = 0; i < esclavos->nfds; i++)
+          {
+            if (esclavos->fds[i].fd == -1)
+            {
+              for(j = i; j < esclavos->nfds; j++)
+              {
+                esclavos->fds[j].fd = esclavos->fds[j+1].fd;
+              }
+              i--;
+              esclavos->nfds--;
+            }
+          }
+        }
+      }
+    }while(end_server == 0); /* End of serving running.    */
+
+     
+    for (i = 0; i < esclavos->nfds; i++)
+    {
+      if(esclavos->fds[i].fd >= 0)
+        close(esclavos->fds[i].fd);
+    }
+
   return 0;  
 }
 
