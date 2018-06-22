@@ -48,7 +48,7 @@ int main(int argc, char **argv)
   key_t key = ftok(".", 444);
   int id_mem;
   void *pto_mem;
-  shmem_data *esclavos;
+  shmem_data *slave;
 
   /*
   * Memoria compartida 
@@ -64,12 +64,14 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-  esclavos = (shmem_data *) pto_mem;
-  esclavos->nfds = 1;
-  esclavos->nfds_dsp = 0;
+  slave = (shmem_data *) pto_mem;
+  slave->nfds = 1;
+  slave->nfds_dsp = 0;
   for (i = 0; i<200 ; i++)
-    esclavos->dsp[i] = -1;
-
+  {
+    slave->dsp[i] = -1;
+    slave->fds[i].fd = -1;
+  }
   /*
   * Asignacion -> socket
   */
@@ -128,24 +130,27 @@ int main(int argc, char **argv)
   }
 
   /*
-  * Procesos encargados de: escuchar esclavos, 
+  * Procesos encargados de: escuchar slave, 
   *escuchar al cliente, proceso encargado de 
   *los hijos que terminan
   */
     /*
     * Inicializar estructura pollfd 
     */
-    memset(esclavos->fds, 0 , sizeof(esclavos->fds));
-    esclavos->fds[0].fd = listen_sd; //servidor
-    esclavos->fds[0].events = POLLIN; 
+    memset(slave->fds, 0 , sizeof(slave->fds));
+    slave->fds[0].fd = listen_sd; //servidor
+    slave->fds[0].events = POLLIN; 
     
 
     /*
     *  Poll conexion de esclavos 
     */
+
+    process = fork();
+
     do
     {
-      if ((rc = poll(esclavos->fds, esclavos->nfds, timeout)) < 0)
+      if ((rc = poll(slave->fds, slave->nfds, timeout)) < 0)
       {
         perror("  poll() failed");
         continue;
@@ -157,19 +162,19 @@ int main(int argc, char **argv)
       /*
       * Registrando esclavos
       */
-      current_size = esclavos->nfds;
+      current_size = slave->nfds;
       for (i = 0; i < current_size; i++)
       {
-        if(esclavos->fds[i].revents == 0)
+        if(slave->fds[i].revents == 0)
           continue;
 
-        if(esclavos->fds[i].revents != POLLIN)
+        if(slave->fds[i].revents != POLLIN)
         {
-          printf("  Error! revents = %d\n", esclavos->fds[i].revents);
+          printf("Error! revents = %d\n", slave->fds[i].revents);
           break;
         }
 
-        if (esclavos->fds[i].fd == listen_sd)
+        if (slave->fds[i].fd == listen_sd && !process)
         {
           do
           {
@@ -179,53 +184,61 @@ int main(int argc, char **argv)
                 perror("  accept() failed");
               break;
             }
-            esclavos->fds[esclavos->nfds].fd = new_sd; //tener cuidado cuando se desconecta un esclavo
-            esclavos->fds[esclavos->nfds].events = POLLIN;
-            esclavos->nfds++;
-            esclavos->nfds_dsp++;
-            esclavos->dsp[i] = 0;
+            slave->fds[slave->nfds].fd = new_sd; //tener cuidado cuando se desconecta un esclavo
+            slave->fds[slave->nfds].events = POLLIN;
+            slave->nfds++;
+            slave->nfds_dsp++;
+            slave->dsp[i] = 0;
           }while (new_sd != -1);
-        }else
+        }else if (slave->nfds >= 1)
         {
-          printf("  Descriptor %d is readable\n", esclavos->fds[i].fd);
+          i=1;          
           close_conn = 0;
-          do
-          {
-            rc = recv(esclavos->fds[i].fd, buffer, sizeof(buffer), 0);
-            printf(" Buffer:  %s\n", buffer);
-            if (rc < 0)
+          
+          while(1)
+          { 
+            if(slave->fds[i].fd != -1)
             {
-              if (errno != EWOULDBLOCK)
+              printf("  Descriptor %d is readable\n", slave->fds[i].fd);
+              rc = recv(slave->fds[i].fd, buffer, sizeof(buffer), 0);
+              printf(" Buffer:  %s\n", buffer);            
+              if (rc < 0)
               {
-                perror("  recv() failed");
-                close_conn = 1;
+                if (errno != EWOULDBLOCK)
+                {
+                  perror("  recv() failed");
+                  close_conn = 1;
+                }
+                break;
               }
-              break;
-            }
 
-            if (rc == 0)
-            {
-              printf("  Connection closed\n");
-              close_conn = 1;
-              break;
-            }
+              if (rc == 0)
+              {
+                printf("  Connection closed\n");
+                close_conn = 1;
+                break;
+              }
 
-            len = rc;
-            printf("  %d bytes received\n", len);
+              len = rc;
+              printf("  %d bytes received\n", len);
 
-            rc = send(esclavos->fds[i].fd, "hola", len, 0);
-            if (rc < 0)
-            {
-              perror("  send() failed");
-              close_conn = 1;
+              rc = send(slave->fds[i].fd, "hola", len, 0);
+              if (rc < 0)
+              {
+                perror("  send() failed");
+                close_conn = 1;
+                break;
+              }
+              i++;
+              continue;
+            }else 
               break;
-            }
-          } while(1);
+          }
       
           if (close_conn)
           {
-            close(esclavos->fds[i].fd);
-            esclavos->fds[i].fd = -1;
+            close(slave->fds[i].fd);
+            slave->fds[i].fd = -1;
             compress_array = 1;
           }
         }  
@@ -233,16 +246,16 @@ int main(int argc, char **argv)
         if (compress_array)
         {
           compress_array = 0;
-          for (i = 0; i < esclavos->nfds; i++)
+          for (i = 0; i < slave->nfds; i++)
           {
-            if (esclavos->fds[i].fd == -1)
+            if (slave->fds[i].fd == -1)
             {
-              for(j = i; j < esclavos->nfds; j++)
+              for(j = i; j < slave->nfds; j++)
               {
-                esclavos->fds[j].fd = esclavos->fds[j+1].fd;
+                slave->fds[j].fd = slave->fds[j+1].fd;
               }
               i--;
-              esclavos->nfds--;
+              slave->nfds--;
             }
           }
         }
@@ -250,10 +263,10 @@ int main(int argc, char **argv)
     }while(end_server == 0); /* End of serving running.    */
 
      
-    for (i = 0; i < esclavos->nfds; i++)
+    for (i = 0; i < slave->nfds; i++)
     {
-      if(esclavos->fds[i].fd >= 0)
-        close(esclavos->fds[i].fd);
+      if(slave->fds[i].fd >= 0)
+        close(slave->fds[i].fd);
     }
 
   return 0;  
