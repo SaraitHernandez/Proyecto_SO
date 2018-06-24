@@ -3,14 +3,10 @@
 #include <string.h>
 #include <unistd.h>
 #include <signal.h>
-#include <sys/types.h> 
+#include <sys/types.h>
 #include <errno.h>
-// Memomia compartida y cola de mensajes
-#include <sys/msg.h>
-#include <sys/shm.h>
-#include <sys/sem.h>
-#include <sys/ipc.h>
-// sockets 
+#include <pthread.h>
+// Sockets
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -21,255 +17,299 @@
 #include <netinet/in.h>
 
 #include "server.h"
+
+#define NRO_THR 4
+
+pthread_t threads[NRO_THR];
+struct pollfd fds_slaves[20], fds_clients[10], fd_server_client;
+int result, nfds_slaves = 0, nfds_clients = 0;
+int listen_slave = -1, listen_client = -1;
 int timeout = (3 * 60 * 1000);
 
+data t_arg;
+data_slave reg_slv;
+data_client reg_cli; 
 
-int main(int argc, char **argv)
+void * registering_clients() 
 {
-
-  if(argc<2)
+  int rc, new_sd = -1, i;
+  int nfds = 1;
+  while(1)
   {
-    printf("%s [puerto]\n",argv[0]);
-    return 1;
-  }
-   int    len ;
-
-  int    desc_ready, end_server = 0, compress_array = 0;
-  int    close_conn;
-  int puerto, process_pid[4], rc, on = 1;
-  int listen_sd = -1, new_sd = -1;
-  int current_size = 0, i, j;
-  pid_t process;
-  socklen_t longCliente;
-  struct sockaddr_in servidor, cliente;
-  char buffer[200];
-  puerto = atoi(argv[1]);
-
-  key_t key = ftok(".", 444);
-  int id_mem;
-  void *pto_mem;
-  shmem_data *slave;
-
-  /*
-  * Memoria compartida 
-  */
-  if ((id_mem = shmget(key, sizeof(shmem_data), IPC_CREAT|0666)) < 0)
-  {
-    perror("shmget");
-    exit(EXIT_FAILURE);
-  } 
-  if ((pto_mem = (void *) shmat(id_mem, NULL, 0)) == (int *) -1)
-  {
-    perror("shmmat");
-    exit(EXIT_FAILURE);
-  }
-
-  slave = (shmem_data *) pto_mem;
-  slave->nfds = 1;
-  slave->nfds_dsp = 0;
-  for (i = 0; i<200 ; i++)
-  {
-    slave->dsp[i] = -1;
-    slave->fds[i].fd = -1;
-  }
-  /*
-  * Asignacion -> socket
-  */
-  if ((listen_sd = socket(AF_INET, SOCK_STREAM, 0)) < 0)
-  {
-    perror("socket() failed");
-    exit(-1);
-  }
-
-  /*
-  * Socket descriptor reutilizable
-  */
-  if ((rc = setsockopt(listen_sd, SOL_SOCKET,  SO_REUSEADDR,
-                  (char *)&on, sizeof(on))) < 0)
-  {
-    perror("setsockopt() failed");
-    close(listen_sd);
-    exit(-1);
-  }
-
-  /*
-  * Socket no bloqueante 
-  */
-  if((rc = ioctl(listen_sd, FIONBIO, (char *)&on)) < 0)
-  {
-    perror("ioctl() failed");
-    close(listen_sd);
-    exit(-1);
-  }
-
-  /*
-  * Asignacion -> socket a puerto
-  */
-  bzero((char *)&servidor, sizeof(servidor));
-  servidor.sin_family = AF_INET;
-  servidor.sin_port = htons(puerto);
-  servidor.sin_addr.s_addr = INADDR_ANY; //Macro -> Propia Direccion
-
-
-  if(bind(listen_sd, (struct sockaddr *)&servidor, 
-          sizeof(servidor)) < 0)
-  {
-    perror("bind() failed");
-    close(listen_sd);
-    exit(-1);
-  }
-
-  /*
-  * Eschuchar
-  */
-  if ((rc = listen(listen_sd, 30)) < 0)
-  {
-    perror("listen() failed");
-    close(listen_sd);
-    exit(-1);
-  }
-
-  /*
-  * Procesos encargados de: escuchar slave, 
-  *escuchar al cliente, proceso encargado de 
-  *los hijos que terminan
-  */
-    /*
-    * Inicializar estructura pollfd 
-    */
-    memset(slave->fds, 0 , sizeof(slave->fds));
-    slave->fds[0].fd = listen_sd; //servidor
-    slave->fds[0].events = POLLIN; 
-    
-
-    /*
-    *  Poll conexion de esclavos 
-    */
-
-    process = fork();
-
-    do
+    if (((rc = poll(&fd_server_client, nfds, timeout)) < 0))
     {
-      if ((rc = poll(slave->fds, slave->nfds, timeout)) < 0)
-      {
-        perror("  poll() failed");
-        continue;
-      }
-      if (rc == 0)
-      {
-        continue;
-      }
-      /*
-      * Registrando esclavos
-      */
-      current_size = slave->nfds;
-      for (i = 0; i < current_size; i++)
-      {
-        if(slave->fds[i].revents == 0)
-          continue;
+      perror("poll() failed");
+      continue;
+    }
+    
+    if (rc == 0) 
+    {
+      continue;
+    }
 
-        if(slave->fds[i].revents != POLLIN)
+    if (fd_server_client.fd == listen_client)
+    {
+      do
+      {
+        if((new_sd = accept(listen_client, NULL, NULL)) < 0)
         {
-          printf("Error! revents = %d\n", slave->fds[i].revents);
-          break;
+            if (errno != EWOULDBLOCK)
+                perror("accept() failed");
+            break;
+        }
+        fds_clients[nfds_clients].fd = new_sd; //tener cuidado cuando se desconecta un esclavo
+        fds_clients[nfds_clients].events = POLLIN;
+        nfds_clients++;
+        printf("nfds_clients %d\n", nfds_clients);
+      }while (new_sd != -1);
+    }
+  }
+  
+}
+
+void * send_msg_client() 
+{
+  int current_size, fd, rc, len, close_conn, i, j;
+  int end_server = 0, compress_array = 0;
+  char buffer[200];
+
+  do
+  {
+    while(1)
+    {
+      if(nfds_clients >= 1)
+      {
+    
+        close_conn = 0;
+
+        if ((rc = poll(fds_clients, nfds_clients, timeout)) < 0)
+        {
+          perror("poll() failed");
+          continue;
+        }
+        
+        if (rc == 0)
+        {
+          printf("timeout\n");
+          continue;
         }
 
-        if (slave->fds[i].fd == listen_sd && !process)
+        current_size = nfds_clients;
+        for (i = 0; i < current_size; i++)
         {
-          do
-          {
-            if((new_sd = accept(listen_sd, NULL, NULL)) < 0)
-            {
-              if (errno != EWOULDBLOCK)
-                perror("  accept() failed");
-              break;
-            }
-            slave->fds[slave->nfds].fd = new_sd; //tener cuidado cuando se desconecta un esclavo
-            slave->fds[slave->nfds].events = POLLIN;
-            slave->nfds++;
-            slave->nfds_dsp++;
-            slave->dsp[i] = 0;
-          }while (new_sd != -1);
-        }else if (slave->nfds >= 1)
-        {
-          i=1;          
-          close_conn = 0;
           
-          while(1)
-          { 
-            if(slave->fds[i].fd != -1)
+          if(fds_clients[i].revents == 0)
+          {
+              printf("Nothing to read.\n");
+              continue;
+          }
+
+          if(fds_clients[i].revents != POLLIN)
+          {
+              printf("Error revents  padre= %d\n", fds_clients[fd].revents);
+              close_conn = 1;
+              break;
+          }
+
+          if (fds_clients[i].fd == listen_client)
+            continue;
+          else 
+          {
+            printf("    Descriptor %d is readable\n", fds_clients[fd].fd);
+
+            rc = recv(fds_clients[i].fd, buffer, sizeof(buffer), 0);
+
+            if (rc < 0)
             {
-              printf("  Descriptor %d is readable\n", slave->fds[i].fd);
-              rc = recv(slave->fds[i].fd, buffer, sizeof(buffer), 0);
-              printf(" Buffer:  %s\n", buffer);            
-              if (rc < 0)
-              {
                 if (errno != EWOULDBLOCK)
                 {
-                  perror("  recv() failed");
-                  close_conn = 1;
+                    perror("    recv() failed");
+                    close_conn = 1;
                 }
                 break;
-              }
+            }
 
-              if (rc == 0)
-              {
-                printf("  Connection closed\n");
+            if (rc == 0)
+            {
+                printf("    Connection closed\n");
                 close_conn = 1;
                 break;
-              }
+            }
 
-              len = rc;
-              printf("  %d bytes received\n", len);
+            len = rc;
+            printf("    %d bytes received\n", len);
+            printf(" Buffer:    %s\n", buffer);
 
-              rc = send(slave->fds[i].fd, "hola", len, 0);
-              if (rc < 0)
-              {
-                perror("  send() failed");
-                close_conn = 1;
-                break;
-              }
-              i++;
-              continue;
-            }else 
+            rc = send(fds_clients[i].fd, "hola:)", 16, 0);
+            if (rc < 0)
+            {
+              perror("    send() failed");
+              close_conn = 1;
               break;
+            }
           }
       
           if (close_conn)
           {
-            close(slave->fds[i].fd);
-            slave->fds[i].fd = -1;
+            close(fds_clients[i].fd);
             compress_array = 1;
           }
-        }  
-        
+        }       
         if (compress_array)
         {
-          compress_array = 0;
-          for (i = 0; i < slave->nfds; i++)
+          for (i = 0; i < nfds_clients; i++)
           {
-            if (slave->fds[i].fd == -1)
+            if (fds_clients[i].fd == -1)
             {
-              for(j = i; j < slave->nfds; j++)
+              for(j = i; j < nfds_clients; j++)
               {
-                slave->fds[j].fd = slave->fds[j+1].fd;
+                  fds_clients[j].fd = fds_clients[j+1].fd;
               }
               i--;
-              slave->nfds--;
+              nfds_clients--;
+              fds_clients[nfds_clients].fd = -1;
             }
           }
         }
-      }
-    }while(end_server == 0); /* End of serving running.    */
-
-     
-    for (i = 0; i < slave->nfds; i++)
-    {
-      if(slave->fds[i].fd >= 0)
-        close(slave->fds[i].fd);
+      }else
+        printf("nfds_clients_3 %d\n", nfds_clients), sleep(5);
     }
-
-  return 0;  
+  }while(end_server == 0);
+  
 }
 
+int main(int argc, char **argv)
+{
+    if(argc<3)
+    {
+        printf("%s [port for the slave] [port for the client]\n",argv[0]);
+        return 1;
+    }
+    
+    int port_slave, port_client, rc, on = 1, i;
+    data_client *retorno;
+    struct sockaddr_in client, slave;
+    port_slave = atoi(argv[1]);
+    port_client = atoi(argv[2]);
 
+    /*
+    * Asignacion -> socket
+    */
+    if ((listen_slave = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        perror("socket() failed");
+        exit(-1);
+    }
+
+    if ((listen_client = socket(AF_INET, SOCK_STREAM, 0)) < 0)
+    {
+        perror("socket() failed");
+        exit(-1);
+    }
+
+    /*
+    * Socket descriptor reutilizable
+    */
+    if ((rc = setsockopt(listen_slave, SOL_SOCKET,  SO_REUSEADDR,
+                                    (char *)&on, sizeof(on))) < 0)
+    {
+        perror("setsockopt() failed");
+        close(listen_slave);
+        exit(-1);
+    }
+
+    if ((rc = setsockopt(listen_client, SOL_SOCKET,  SO_REUSEADDR,
+                                    (char *)&on, sizeof(on))) < 0)
+    {
+        perror("setsockopt() failed");
+        close(listen_client);
+        exit(-1);
+    }
+
+    /*
+    * Socket no bloqueante
+    */
+    if((rc = ioctl(listen_slave, FIONBIO, (char *)&on)) < 0)
+    {
+        perror("ioctl() failed");
+        close(listen_slave);
+        exit(-1);
+    }
+
+    if((rc = ioctl(listen_client, FIONBIO, (char *)&on)) < 0)
+    {
+        perror("ioctl() failed");
+        close(listen_client);
+        exit(-1);
+    }
+    /*
+    * Asignacion -> socket a puerto 
+    */
+    bzero((char *)&slave, sizeof(slave));
+    slave.sin_family = AF_INET;
+    slave.sin_port = htons(port_slave);
+    slave.sin_addr.s_addr = INADDR_ANY; //Macro -> Propia Direccion
+
+    bzero((char *)&client, sizeof(client));
+    client.sin_family = AF_INET;
+    client.sin_port = htons(port_client);
+    client.sin_addr.s_addr = INADDR_ANY;
+
+
+    if(bind(listen_slave, (struct sockaddr *)&slave,
+                    sizeof(slave)) < 0)
+    {
+        perror("bind() failed");
+        close(listen_slave);
+        exit(-1);
+    }
+
+    if(bind(listen_client, (struct sockaddr *)&client,
+                    sizeof(client)) < 0)
+    {
+        perror("bind() failed");
+        close(listen_client);
+        exit(-1);
+    }
+
+    /*
+    * Eschuchar
+    */
+    if ((rc = listen(listen_slave, 30)) < 0)
+    {
+        perror("listen() failed");
+        close(listen_slave);
+        exit(-1);
+    }
+
+    if ((rc = listen(listen_client, 30)) < 0)
+    {
+        perror("listen() failed");
+        close(listen_client);
+        exit(-1);
+    }
+
+    //inicializaciones registro clientes y esclavos
+
+    reg_slv.fd_server_slave.fd = listen_slave;
+    reg_slv.fd_server_slave.events = POLLIN;
+    fd_server_client.fd = listen_client;
+    fd_server_client.events = POLLIN;
+
+
+    for (i = 0; i<20 ; i++)
+      fds_slaves[i].fd = -1;
+
+    for (i = 0; i<10 ; i++)
+      fds_clients[i].fd = -1;
+    
+    //creación de hilos 
+
+    pthread_create(&threads[0],NULL,(void *)&registering_clients,NULL);
+    pthread_create(&threads[1],NULL,(void *)&send_msg_client,NULL);
+
+    //pthread_join(threads[0], (void *) &retorno);
+
+    while(1) sleep(1);
+    return 0;
+}

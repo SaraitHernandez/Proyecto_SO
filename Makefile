@@ -3,10 +3,10 @@ all : server client
 CPPFLAGS = -g -I.
 
 server : server.c
-	cc -g -I. server.c -o server
+	gcc -g -I. server.c -o server -pthread
 
 client : client.c
-	cc -g -I. client.c -o client
+	gcc -g -I. client.c -o client -pthread
 
 clean :
 	rm server client

@@ -67,15 +67,16 @@ int main(int argc, char **argv)
   a = inet_ntoa(cliente.sin_addr);
   printf("Conexion con -> %s:%d\n", a,htons(cliente.sin_port));
   while(1){
-    send(conexion, "hola", 200, 0);
+
+    send(conexion, "cliente", 200, 0);
     printf("Mensaje envido \n");
     n = recv(conexion, buffer, 200, 0);
     if(n < 0)
-      printf("errr\n");
+      printf("error recv\n");
     else
       buffer[n]='\0';
     printf("Mensaje cliente 1: %s \n", buffer);
-    sleep(10);    
+    sleep(1);    
   }
   return 0;
 }
