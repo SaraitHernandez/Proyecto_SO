@@ -238,8 +238,7 @@ void * send_msg_client()
 {
   int current_size, rc, len, close_conn, i, j, fd;
   int compress_array = 0;
-  char buffer[200], bf[10];
-  char fd_cl[10];
+  char buffer[200], msg[200];
 
   while(1)
   {
@@ -291,13 +290,12 @@ void * send_msg_client()
               break;
           }
           fd = atoi(buffer);
-          itoa(fds_clients[i].fd,bf,10);
-          strcat(buffer, bf);
-          
-          len = rc;
+
+          snprintf(msg, sizeof(msg), "0 %s %d ", buffer, fds_clients[i].fd);
+
           if (fds_slaves[fd].fd != -1)
           {
-            rc = send(fds_slaves[fd].fd, buffer, len, 0);
+            rc = send(fds_slaves[fd].fd, msg, 200, 0);
             if (rc < 0)
             {
               perror("send() failed");
@@ -340,7 +338,7 @@ void * send_msg_slave()
 {
   int current_size, rc, len, close_conn, i, j, fd;
   int compress_array = 0;
-  char buffer[200];
+  char buffer[200], *cl, *r;
 
   while(1)
   {
@@ -392,19 +390,27 @@ void * send_msg_slave()
               break;
           }
 
-          fd = atoi(buffer);
-          len = rc;
-          if (fds_clients[fd].fd != -1)
+          cl =  strtok(buffer, " ");
+          r =  strtok(NULL, " ");
+          printf("r: %s\n",r );
+          fd = atoi(cl);
+
+          for(j=0; j<nfds_slaves; j++)
           {
-            rc = send(fds_clients[fd].fd, buffer, len, 0);
-            if (rc < 0)
+            if (fds_clients[j].fd == fd)
             {
-              perror("send() failed");
-              close_conn = 1;
-              break;
-            }
-          }else
-            send(fds_slaves[i].fd,"client not available", 50, 0);
+              rc = send(fds_clients[j].fd, r, 10, 0);
+              if (rc < 0)
+              {
+                perror("send() failed");
+                close_conn = 1;
+                break;
+              }
+            }else
+              send(fds_slaves[i].fd,"client not available", 50, 0);
+          }
+          
+          
         }
       }
    

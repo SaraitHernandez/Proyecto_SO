@@ -62,8 +62,8 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  char *a, *cl;
-  int n;
+  char *a, *cl, *fn, msg[200], *tipo;
+  int n, result = 5;
   a = inet_ntoa(cliente.sin_addr);
   printf("Conexion con -> %s:%d\n", a,htons(cliente.sin_port));
   
@@ -73,12 +73,20 @@ int main(int argc, char **argv)
     if(n < 0)
       printf("error recv\n");
     else
-      printf("Mensaje cliente: %s \n", buffer);
+    {
+      tipo =  strtok(buffer, " ");
+      if (strcmp(tipo, "0") == 0)
+      {
+        fn =  strtok(NULL, " ");
+        cl =  strtok(NULL, " ");
+        printf("fd_client[%s], función a correr: %s\n",cl, fn);
+      }else
+        printf("%s\n",buffer);
+    }
 
-    printf("Elija un cliente \n");
-    scanf("%s", cl);
-    strcpy(buffer, cl);
-    n= send(conexion, buffer, 200, 0);
+    snprintf(msg, sizeof(msg), "%s %d ", cl, result);
+
+    n= send(conexion, msg, 200, 0);
     if(n < 0)
       printf("error send\n");
   }
