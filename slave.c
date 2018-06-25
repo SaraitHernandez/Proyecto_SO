@@ -62,11 +62,12 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  char *a, *cl, *fn, msg[200], *tipo;
-  int n, result = 5;
+  char *a, *cl, *fn, msg[200], *tp, error[50];
+  int n, result = 100;
   a = inet_ntoa(cliente.sin_addr);
+ 
+  system("clear");
   printf("Conexion con -> %s:%d\n", a,htons(cliente.sin_port));
-  
   while(1)
   {
     n = recv(conexion, buffer, 200, 0);
@@ -74,21 +75,23 @@ int main(int argc, char **argv)
       printf("error recv\n");
     else
     {
-      tipo =  strtok(buffer, " ");
-      if (strcmp(tipo, "0") == 0)
+      strcpy(error, buffer);
+      tp =  strtok(buffer, " ");
+      if (strcmp(tp, "0") == 0)
       {
         fn =  strtok(NULL, " ");
         cl =  strtok(NULL, " ");
         printf("fd_client[%s], función a correr: %s\n",cl, fn);
-      }else
-        printf("%s\n",buffer);
+        
+        snprintf(msg, sizeof(msg), "%s %d ", cl, result);
+        n= send(conexion, msg, 200, 0);
+        if(n < 0)
+          printf("error send\n");
+      }else 
+        printf("%s\n",error);
     }
 
-    snprintf(msg, sizeof(msg), "%s %d ", cl, result);
-
-    n= send(conexion, msg, 200, 0);
-    if(n < 0)
-      printf("error send\n");
+    
   }
   return 0;
 }

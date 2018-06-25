@@ -65,8 +65,9 @@ int main(int argc, char **argv)
   char *a, *sl;
   int n;
   a = inet_ntoa(cliente.sin_addr);
+  
+  system("clear");
   printf("Conexion con -> %s:%d\n", a,htons(cliente.sin_port));
- 
   while(1)
   {
     printf("Elija un esclavo \n");

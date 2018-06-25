@@ -22,7 +22,7 @@ pthread_t threads[NRO_THR];
 struct pollfd fds_slaves[20], fds_clients[10], fd_server_client, fd_server_slave;
 int result, nfds_slaves = 0, nfds_clients = 0;
 int listen_slave = -1, listen_client = -1;
-int timeout = (3 * 60 * 1000);
+int timeout = (4 * 1000);
 
 void * registering_clients();
 void * registering_slaves();
@@ -137,6 +137,7 @@ int main(int argc, char **argv)
     }
 
     //inicializaciones registro clientes y esclavos
+    system("clear");
 
     fd_server_slave.fd = listen_slave;
     fd_server_slave.events = POLLIN;
@@ -337,7 +338,7 @@ void * send_msg_client()
 void * send_msg_slave() 
 {
   int current_size, rc, len, close_conn, i, j, fd;
-  int compress_array = 0;
+  int compress_array = 0, env = 0;
   char buffer[200], *cl, *r;
 
   while(1)
@@ -374,7 +375,7 @@ void * send_msg_slave()
         else 
         {
           printf("file descriptor slave: %d\n", fds_slaves[i].fd);
-
+          bzero((char *)&buffer, sizeof(buffer));
           rc = recv(fds_slaves[i].fd, buffer, sizeof(buffer), 0);
 
           if (rc < 0)
@@ -388,14 +389,14 @@ void * send_msg_slave()
           {
               printf("Connection closed\n"), close_conn = 1;
               break;
-          }
+          } 
 
           cl =  strtok(buffer, " ");
           r =  strtok(NULL, " ");
-          printf("r: %s\n",r );
           fd = atoi(cl);
+          env = 0;
 
-          for(j=0; j<nfds_slaves; j++)
+          for(j=0; j<nfds_clients; j++)
           {
             if (fds_clients[j].fd == fd)
             {
@@ -406,11 +407,15 @@ void * send_msg_slave()
                 close_conn = 1;
                 break;
               }
-            }else
-              send(fds_slaves[i].fd,"client not available", 50, 0);
+              env = 1;
+              break; 
+            }
           }
           
-          
+          if(!env)
+            send(fds_slaves[i].fd,"client not available", 50, 0);
+         
+
         }
       }
    
