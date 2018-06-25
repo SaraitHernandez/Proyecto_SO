@@ -16,8 +16,6 @@
 #include <sys/time.h>
 #include <netinet/in.h>
 
-#include "server.h"
-
 #define NRO_THR 4
 
 pthread_t threads[NRO_THR];
@@ -41,7 +39,7 @@ int main(int argc, char **argv)
     }
     
     int port_slave, port_client, rc, on = 1, i;
-    data_client *retorno;
+    int *retorno;
     struct sockaddr_in client, slave;
     port_slave = atoi(argv[1]);
     port_client = atoi(argv[2]);
@@ -158,9 +156,11 @@ int main(int argc, char **argv)
     pthread_create(&threads[2],NULL,(void *)&registering_slaves,NULL);
     pthread_create(&threads[3],NULL,(void *)&send_msg_slave,NULL);
 
-    //pthread_join(threads[0], (void *) &retorno);
+    pthread_join(threads[0], (void *) &retorno);
+    pthread_join(threads[1], (void *) &retorno);
+    pthread_join(threads[2], (void *) &retorno);
+    pthread_join(threads[3], (void *) &retorno);
 
-    while(1) sleep(1);
     return 0;
 }
 
@@ -194,7 +194,6 @@ void * registering_clients()
         fds_clients[nfds_clients].fd = new_sd;
         fds_clients[nfds_clients].events = POLLIN;
         nfds_clients++;
-        printf("nfds_clients %d\n", nfds_clients);
       }while (new_sd != -1);
     }
   }
@@ -229,7 +228,6 @@ void * registering_slaves()
         fds_slaves[nfds_slaves].fd = new_sd;
         fds_slaves[nfds_slaves].events = POLLIN;
         nfds_slaves++;
-        printf("nfds_slaves %d\n", nfds_slaves);
       }while (new_sd != -1);
     }
   }
@@ -240,7 +238,8 @@ void * send_msg_client()
 {
   int current_size, rc, len, close_conn, i, j, fd;
   int compress_array = 0;
-  char buffer[200];
+  char buffer[200], bf[10];
+  char fd_cl[10];
 
   while(1)
   {
@@ -291,8 +290,10 @@ void * send_msg_client()
               printf("Connection closed\n"), close_conn = 1;
               break;
           }
-
           fd = atoi(buffer);
+          itoa(fds_clients[i].fd,bf,10);
+          strcat(buffer, bf);
+          
           len = rc;
           if (fds_slaves[fd].fd != -1)
           {
