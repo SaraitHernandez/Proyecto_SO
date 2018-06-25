@@ -62,29 +62,22 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  char *a, *sl;
+  char *a;
   int n;
   a = inet_ntoa(cliente.sin_addr);
   printf("Conexion con -> %s:%d\n", a,htons(cliente.sin_port));
- 
+  
   while(1)
   {
-    printf("Elija un esclavo \n");
-    scanf("%s", sl);
-     printf("sl  %s \n", sl);
-    strcpy(buffer, sl);
-     printf("Mensaje  %s \n", buffer);
-      printf("sl2  %s \n", sl);
-    n= send(conexion, buffer, 200, 0);
-    if(n < 0)
-      printf("error send\n");
-
     n = recv(conexion, buffer, 200, 0);
     if(n < 0)
       printf("error recv\n");
+    else
+      printf("Mensaje cliente: %s \n", buffer);
 
-    printf("Mensaje del esclavo: %s \n", buffer);
-    sleep(1);    
+    n= send(conexion, "0", 200, 0);
+    if(n < 0)
+      printf("error send\n");
   }
   return 0;
 }

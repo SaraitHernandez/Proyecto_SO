@@ -69,112 +69,111 @@ void * registering_clients()
 
 void * send_msg_client() 
 {
-  int current_size, fd, rc, len, close_conn, i, j;
+  int current_size, rc, len, close_conn, i, j, fd;
   int end_server = 0, compress_array = 0;
   char buffer[200];
 
-  do
+  while(1)
   {
-    while(1)
+    if(nfds_clients >= 1)
     {
-      if(nfds_clients >= 1)
+      close_conn = 0;
+
+      if ((rc = poll(fds_clients, nfds_clients, timeout)) < 0)
       {
-    
-        close_conn = 0;
-
-        if ((rc = poll(fds_clients, nfds_clients, timeout)) < 0)
-        {
-          perror("poll() failed");
-          continue;
-        }
-        
-        if (rc == 0)
-        {
-          printf("timeout\n");
-          continue;
-        }
-
-        current_size = nfds_clients;
-        for (i = 0; i < current_size; i++)
-        {
-          
-          if(fds_clients[i].revents == 0)
-          {
-              printf("Nothing to read.\n");
-              continue;
-          }
-
-          if(fds_clients[i].revents != POLLIN)
-          {
-              printf("Error revents  padre= %d\n", fds_clients[fd].revents);
-              close_conn = 1;
-              break;
-          }
-
-          if (fds_clients[i].fd == listen_client)
-            continue;
-          else 
-          {
-            printf("    Descriptor %d is readable\n", fds_clients[fd].fd);
-
-            rc = recv(fds_clients[i].fd, buffer, sizeof(buffer), 0);
-
-            if (rc < 0)
-            {
-                if (errno != EWOULDBLOCK)
-                {
-                    perror("    recv() failed");
-                    close_conn = 1;
-                }
-                break;
-            }
-
-            if (rc == 0)
-            {
-                printf("    Connection closed\n");
-                close_conn = 1;
-                break;
-            }
-
-            len = rc;
-            printf("    %d bytes received\n", len);
-            printf(" Buffer:    %s\n", buffer);
-
-            rc = send(fds_clients[i].fd, "hola:)", 16, 0);
-            if (rc < 0)
-            {
-              perror("    send() failed");
-              close_conn = 1;
-              break;
-            }
-          }
+        perror("poll() failed");
+        continue;
+      }
       
-          if (close_conn)
-          {
-            close(fds_clients[i].fd);
-            compress_array = 1;
-          }
-        }       
-        if (compress_array)
+      if (rc == 0)
+      {
+        printf("timeout\n");
+        continue;
+      }
+
+      current_size = nfds_clients;
+      for (i = 0; i < current_size; i++)
+      {
+        
+        if(fds_clients[i].revents == 0)
         {
-          for (i = 0; i < nfds_clients; i++)
+            printf("Nothing to read.\n");
+            continue;
+        }
+
+        if(fds_clients[i].revents != POLLIN)
+        {
+            printf("Error revents = %d\n", fds_clients[i].revents);
+            close_conn = 1;
+            break;
+        }
+
+        if (fds_clients[i].fd == listen_client)
+          continue;
+        else 
+        {
+          printf("Descriptor %d is readable\n", fds_clients[i].fd);
+
+          rc = recv(fds_clients[i].fd, buffer, sizeof(buffer), 0);
+
+          if (rc < 0)
           {
-            if (fds_clients[i].fd == -1)
-            {
-              for(j = i; j < nfds_clients; j++)
+              if (errno != EWOULDBLOCK)
               {
-                  fds_clients[j].fd = fds_clients[j+1].fd;
+                  perror("recv() failed");
+                  close_conn = 1;
               }
-              i--;
-              nfds_clients--;
-              fds_clients[nfds_clients].fd = -1;
-            }
+              break;
+          }
+
+          if (rc == 0)
+          {
+              printf("Connection closed\n");
+              close_conn = 1;
+          }
+
+          printf(" Buffer:    %s, fd:\n", buffer);
+          fd = atoi(buffer);
+
+          len = rc;
+          printf("    %d bytes received\n", len);
+          printf(" Buffer:    %s, fd: %d\n", buffer, fd);
+
+          rc = send(fds_clients[fd].fd, "hola:)", 16, 0);
+          if (rc < 0)
+          {
+            perror("    send() failed");
+            close_conn = 1;
+            break;
           }
         }
-      }else
-        printf("nfds_clients_3 %d\n", nfds_clients), sleep(5);
-    }
-  }while(end_server == 0);
+        if (close_conn)
+        {
+          close(fds_clients[i].fd);
+          compress_array = 1;
+          break;
+        }
+      }
+   
+      if (compress_array)
+      {
+        for (i = 0; i < nfds_clients; i++)
+        {
+          if (fds_clients[i].fd == -1)
+          {
+            for(j = i; j < nfds_clients; j++)
+            {
+                fds_clients[j].fd = fds_clients[j+1].fd;
+            }
+            i--;
+            nfds_clients--;
+            fds_clients[nfds_clients].fd = -1;
+          }
+        }
+      }
+    }else
+      printf("nfds_clients_3 %d\n", nfds_clients), sleep(5);
+  }
   
 }
 

@@ -1,4 +1,4 @@
-all : server client
+all : server client slave
 
 CPPFLAGS = -g -I.
 
@@ -8,5 +8,8 @@ server : server.c
 client : client.c
 	gcc -g -I. client.c -o client -pthread
 
+slave : slave.c
+	gcc -g -I. slave.c -o slave -pthread
+
 clean :
-	rm server client
+	rm server client slave
