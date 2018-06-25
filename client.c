@@ -71,10 +71,8 @@ int main(int argc, char **argv)
   {
     printf("Elija un esclavo \n");
     scanf("%s", sl);
-     printf("sl  %s \n", sl);
     strcpy(buffer, sl);
-     printf("Mensaje  %s \n", buffer);
-      printf("sl2  %s \n", sl);
+
     n= send(conexion, buffer, 200, 0);
     if(n < 0)
       printf("error send\n");
@@ -83,7 +81,7 @@ int main(int argc, char **argv)
     if(n < 0)
       printf("error recv\n");
 
-    printf("Mensaje del esclavo: %s \n", buffer);
+    printf("respuesta: %s \n", buffer);
     sleep(1);    
   }
   return 0;

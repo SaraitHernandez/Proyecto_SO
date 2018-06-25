@@ -62,7 +62,7 @@ int main(int argc, char **argv)
     return 1;
   }
 
-  char *a;
+  char *a, *cl;
   int n;
   a = inet_ntoa(cliente.sin_addr);
   printf("Conexion con -> %s:%d\n", a,htons(cliente.sin_port));
@@ -75,7 +75,10 @@ int main(int argc, char **argv)
     else
       printf("Mensaje cliente: %s \n", buffer);
 
-    n= send(conexion, "0", 200, 0);
+    printf("Elija un cliente \n");
+    scanf("%s", cl);
+    strcpy(buffer, cl);
+    n= send(conexion, buffer, 200, 0);
     if(n < 0)
       printf("error send\n");
   }
