@@ -191,6 +191,8 @@ void run_function(int fn)
     wait(&child);
     if(child)
       printf("error execvp\n");
+    else
+      printf("Finalizó la ejecución de la función requerida\n");
   }
 
 }

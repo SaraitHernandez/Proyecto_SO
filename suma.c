@@ -26,7 +26,9 @@ int main(int argc, char *argv[]) {
 	
 	a = atof ( argv [1]);
 	b = atof ( argv [2]);
+	printf("\n_______________________Sumador_______________________\n\n");
 	c = a+b;
+	printf("El resultado de %d + %d = %d\n", a, b, c);
 	result[0] = c;
 	return 0;
 }

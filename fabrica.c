@@ -27,7 +27,7 @@ int main(int argc, char *argv[]){
 	key_t key = ftok(".", 666);
 	key_t key_q = ftok(".", 420);
 	int id_mem, id_queue,i, tipo_msj=0, *contador_envios;
-	int id_mem_2, *result, fin, total=0;
+	int id_mem_2, *result, fin, total=0, cont = 0;
 	void *pto_mem, *pto_mem_2;
 	data_queue paquete;
 	pid_t ensambladora;
@@ -98,7 +98,7 @@ int main(int argc, char *argv[]){
 	//envio de paquetes
 	printf("fin %d\n",fin );
 	if(!ensambladora){
-		while(*contador_envios != fin){	
+		while(cont != fin){	
 
 			sleep(3+(rand()%13));
 			tipo_msj = 1 + (rand()%21);
@@ -113,6 +113,7 @@ int main(int argc, char *argv[]){
 	  			perror("Envio fallido");
 	  		} else{
 	  			(*contador_envios)++;
+	  			cont++;
 	  		}
 
 	  		llamadaSemaforo(sem, 0, 1);
@@ -120,18 +121,16 @@ int main(int argc, char *argv[]){
 	}else
 	{
 		signal(2, exit_signal);
-		system("clear");
-		printf("\n_______________________ Fabrica Ensambladora _______________________\n\n");
-		while(*contador_envios != fin)
+		printf("\n_______________________ Fábrica Ensambladora _______________________\n\n");
+		while(cont != fin)
 		{
 			if(msgrcv(id_queue, (void *)&paquete, sizeof(data_queue), (long) 0, 0) == -1) 
         		perror("errormsgrcv\n");
     		else{ 
-    			printf("La planta: %d envió el paquete nro: %d\n", paquete.contenido.planta, *contador_envios);
-    			printf("De tipo: %ld\n", paquete.tipo_pieza);
-    			printf("Con la cantidad de piezas: %d\n", paquete.contenido.cantidad_pieza);
+    			printf("Planta emisora: %d cantidad de piezas recibidas: %d\n", paquete.contenido.planta, paquete.contenido.cantidad_pieza);
     			total += paquete.contenido.cantidad_pieza;
     			fflush(stdout);
+    			cont++;
     		}
 
 		}

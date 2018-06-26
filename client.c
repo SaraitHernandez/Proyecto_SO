@@ -67,7 +67,8 @@ int main(int argc, char **argv)
   a = inet_ntoa(cliente.sin_addr);
   
   system("clear");
-  printf("Conexion con -> %s:%d\n", a,htons(cliente.sin_port));
+  printf("Bienvenido está conectado con -> %s:%d\n", a,htons(cliente.sin_port));
+ 
   while(1)
   {
     printf("Elija un esclavo \n");
@@ -87,3 +88,40 @@ int main(int argc, char **argv)
   }
   return 0;
 }
+
+void menu()
+{
+  printf("\n Seleccione el programa que desea correr \n");
+  printf("\t 0 -> Para usar el sumador\n");
+  printf("\t 1 -> Para la fábrica ensambladora\n");
+  printf("\t 2 -> Cálculo de la conjetura de Collatz por hilos\n");
+  printf("\t 3 -> Cálculo de la conjetura de Collatz por procesos\n");
+  printf("\t 4 -> Fibonacci\n");
+}
+
+
+ int operation(int op)
+ {
+  switch(fn)
+    {
+      case 0:
+        programs[0] = "./suma";
+        programs[1] = "5";
+        programs[2] = "8";
+        programs[3] = NULL;
+        if(execvp(programs[0], programs) < 0)
+          perror("exec");
+        exit(1);
+      case 1:
+        programs[0] = "./fabrica";
+        programs[1] = "2";
+        programs[2] = NULL;
+        if(execvp(programs[0], programs) < 0)
+          perror("exec");
+        exit(1);
+      case 2:
+        if(execvp(programs[2], programs) < 0)
+          perror("exec");
+        exit(1);
+    } 
+ }

@@ -274,7 +274,7 @@ void * send_msg_client()
           continue;
         else 
         {
-          printf("file descriptor client: %d\n", fds_clients[i].fd);
+          printf("Evento del cliente: %d\n", fds_clients[i].fd);
 
           rc = recv(fds_clients[i].fd, buffer, sizeof(buffer), 0);
 
@@ -374,7 +374,7 @@ void * send_msg_slave()
           continue;
         else 
         {
-          printf("file descriptor slave: %d\n", fds_slaves[i].fd);
+          printf("Evento del esclavo: %d\n", fds_slaves[i].fd);
           bzero((char *)&buffer, sizeof(buffer));
           rc = recv(fds_slaves[i].fd, buffer, sizeof(buffer), 0);
 
