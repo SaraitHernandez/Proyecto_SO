@@ -18,6 +18,7 @@
 
 #define NRO_THR 4
 
+
 pthread_t threads[NRO_THR];
 struct pollfd fds_slaves[20], fds_clients[10], fd_server_client, fd_server_slave;
 int result, nfds_slaves = 0, nfds_clients = 0;
@@ -28,6 +29,7 @@ void * registering_clients();
 void * registering_slaves();
 void * send_msg_client();
 void * send_msg_slave();
+void exit_signal(int);
 
 
 int main(int argc, char **argv)
@@ -43,6 +45,8 @@ int main(int argc, char **argv)
     struct sockaddr_in client, slave;
     port_slave = atoi(argv[1]);
     port_client = atoi(argv[2]);
+    signal(2, exit_signal);
+
 
     /*
     * Asignacion -> socket
@@ -239,7 +243,7 @@ void * send_msg_client()
 {
   int current_size, rc, len, close_conn, i, j, fd;
   int compress_array = 0;
-  char buffer[200], msg[200];
+  char buffer[200], msg[200], *sl, *op, *in;
 
   while(1)
   {
@@ -290,9 +294,13 @@ void * send_msg_client()
               printf("Connection closed\n"), close_conn = 1;
               break;
           }
-          fd = atoi(buffer);
 
-          snprintf(msg, sizeof(msg), "0 %s %d ", buffer, fds_clients[i].fd);
+          sl = strtok(buffer, " ");
+          op = strtok(NULL, " ");
+          in = strtok(NULL, " ");
+          fd = atoi(sl);
+
+          snprintf(msg, sizeof(msg), "0 %s %s %d ", op, in, fds_clients[i].fd);
 
           if (fds_slaves[fd].fd != -1)
           {
@@ -400,7 +408,7 @@ void * send_msg_slave()
           {
             if (fds_clients[j].fd == fd)
             {
-              rc = send(fds_clients[j].fd, r, 10, 0);
+              rc = send(fds_clients[j].fd, r, 200, 0);
               if (rc < 0)
               {
                 perror("send() failed");
@@ -444,4 +452,30 @@ void * send_msg_slave()
       }
     }
   } 
+}
+
+void exit_signal(int num)
+{
+  int i;
+ 
+  for (i = 0; i < nfds_slaves; i++)
+  {
+    if(fds_slaves[i].fd >= 0)
+    {
+      send(fds_slaves[i].fd,"1", 20, 0);
+      close(fds_slaves[i].fd);
+    }
+  }
+  for (i = 0; i < nfds_clients; i++)
+  {
+    if(fds_clients[i].fd >= 0)
+    {
+      send(fds_slaves[i].fd,"1", 20, 0);
+      close(fds_clients[i].fd);
+    }
+  }
+
+  system("clear");
+  printf("Hasta luego!\n");
+  exit(EXIT_SUCCESS); 
 }

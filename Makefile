@@ -1,4 +1,4 @@
-all : suma server client slave collatz_t collatz_p fabrica
+all : fibonacci server client slave collatz_t collatz_p fabrica
 
 CPPFLAGS = -g -I.
 
@@ -20,8 +20,8 @@ collatz_t : collatz_t.c
 fabrica : fabrica.c
 	gcc -g -I. fabrica.c -o fabrica
 
-suma : suma.c
-	gcc -g -I. suma.c -o suma
+fibonacci : fibonacci.c
+	gcc -g -I. fibonacci.c -o fibonacci
 
 clean :
-	rm server client slave collatz_t collatz_p fabrica suma
+	rm server client slave collatz_t collatz_p fabrica fibonacci

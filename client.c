@@ -7,6 +7,10 @@
 #include<netinet/in.h>
 #include<netdb.h>
 
+char buffer[200];
+int menu();
+void selection(int );
+
 int main(int argc, char **argv)
 {
 
@@ -17,7 +21,7 @@ int main(int argc, char **argv)
   }
   
   int puerto, conexion;
-  char buffer[200];
+
   
   /* 
   * Estructura -> Informacion Conexion
@@ -71,9 +75,8 @@ int main(int argc, char **argv)
  
   while(1)
   {
-    printf("Elija un esclavo \n");
-    scanf("%s", sl);
-    strcpy(buffer, sl);
+
+    selection(menu());
 
     n= send(conexion, buffer, 200, 0);
     if(n < 0)
@@ -83,45 +86,67 @@ int main(int argc, char **argv)
     if(n < 0)
       printf("error recv\n");
 
-    printf("respuesta: %s \n", buffer);
-    sleep(1);    
+    printf("\n-> Respuesta: %s \n", buffer);
+    sleep(4);    
   }
   return 0;
 }
 
-void menu()
+int menu()
 {
-  printf("\n Seleccione el programa que desea correr \n");
-  printf("\t 0 -> Para usar el sumador\n");
-  printf("\t 1 -> Para la fábrica ensambladora\n");
-  printf("\t 2 -> Cálculo de la conjetura de Collatz por hilos\n");
-  printf("\t 3 -> Cálculo de la conjetura de Collatz por procesos\n");
-  printf("\t 4 -> Fibonacci\n");
+  int op, error;
+  do
+  {
+    system("clear");
+    error = 0;
+    printf("\nSeleccione el programa que desea correr \n");
+    printf("\t 1 -> Piezas recibidas, fábrica ensambladora\n");
+    printf("\t 2 -> Cálculo de la conjetura de Collatz por hilos\n");
+    printf("\t 3 -> Cálculo de la conjetura de Collatz por procesos\n");
+    printf("\t 4 -> Cálculo serie de Fibonacci\n");
+    printf("\t Elección: ");
+    scanf("%d", &op);
+    if(op != 1 && op != 2 && op != 3 && op != 4)
+      printf("Elija una opción válida\n"), error = 1, sleep(2);
+  }while (error == 1);
+  
+  return op;
 }
 
 
- int operation(int op)
- {
-  switch(fn)
-    {
-      case 0:
-        programs[0] = "./suma";
-        programs[1] = "5";
-        programs[2] = "8";
-        programs[3] = NULL;
-        if(execvp(programs[0], programs) < 0)
-          perror("exec");
-        exit(1);
-      case 1:
-        programs[0] = "./fabrica";
-        programs[1] = "2";
-        programs[2] = NULL;
-        if(execvp(programs[0], programs) < 0)
-          perror("exec");
-        exit(1);
-      case 2:
-        if(execvp(programs[2], programs) < 0)
-          perror("exec");
-        exit(1);
-    } 
- }
+void selection(int op)
+{
+  int slave, in;
+  system("clear");
+
+  switch(op)
+  {
+    case 1:
+      printf("\n* Piezas recibidas por la fábrica ensambladora\n");
+      printf("\n-> Ingrese la cantidad de paquetes a enviar: ");
+      scanf("%d", &in);
+      break;
+    case 2:
+      printf("\n* Cáculo de la conjetura de Collatz por hilos\n");
+      printf("\n-> Ingrese un número: ");
+      scanf("%d", &in);
+      break;
+    case 3:
+      printf("\n* Cáculo de la conjetura de Collatz por procesos\n");
+      printf("\n-> Ingrese un número: ");
+      scanf("%d", &in);
+      break;
+    case 4:
+      printf("\n* Cálculo de la Serie de Fibonacci\n");
+      printf("\n-> Ingrese un número: ");
+      scanf("%d", &in);
+      break;
+  } 
+  
+  printf("\n* Seleccione un número de trabajador \nque ejecute por ud el programa: ");
+  fflush(stdout);
+  scanf("%d", &slave);
+
+  snprintf(buffer, sizeof(buffer), "%d %d %d", slave, op, in);
+
+}

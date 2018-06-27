@@ -8,6 +8,7 @@
 #include <sys/ipc.h>
 #include <sys/types.h>
 #include <time.h>
+#include <sys/wait.h>
 #include "fabrica.h"
 
 int llamadaSemaforo(int semId, int semNum, int op) 
@@ -19,38 +20,25 @@ int llamadaSemaforo(int semId, int semNum, int op)
   return (semop(semId, &sops, 1)); /*devuelve -1 si error */
 }
 
-void exit_signal(int);
+void exit_signal();
 
 int main(int argc, char *argv[]){
 
 	key_t key_r = ftok(".", 1234);
-	key_t key = ftok(".", 666);
 	key_t key_q = ftok(".", 420);
-	int id_mem, id_queue,i, tipo_msj=0, *contador_envios;
-	int id_mem_2, *result, fin, total=0, cont = 0;
-	void *pto_mem, *pto_mem_2;
+	int id_mem, id_queue,i, tipo_msj=0;
+	int fin, total=0, cont = 0;
+	void *pto_mem;
 	data_queue paquete;
 	pid_t ensambladora;
+	signal(2, exit_signal);
+
 
 	fin = atof ( argv [1]);
-	//Memoria compartida resultado
-
-	if ((id_mem_2 = shmget(key_r, 3 * sizeof(int), IPC_CREAT|0666)) < 0)
-	{
-		perror("shmget");
-		exit(EXIT_FAILURE);
-	} 
-	if ((pto_mem_2 = (void *) shmat(id_mem_2, NULL, 0)) == (int *) -1)
-	{
-		perror("shmmat");
-		exit(EXIT_FAILURE);
-	}
-
-	result = (int *) pto_mem_2;
-
+	char * result;  
 	//Memoria compartida
 
-	if ((id_mem = shmget(key, sizeof(int), IPC_CREAT|0666)) < 0)
+	if ((id_mem = shmget(key_r,  4 * sizeof(char *), IPC_CREAT|0666)) < 0)
 	{
 		perror("shmget");
 		exit(EXIT_FAILURE);
@@ -61,8 +49,9 @@ int main(int argc, char *argv[]){
 		exit(EXIT_FAILURE);
 	}
 
-	contador_envios = (int *) pto_mem;
-	
+	result = (char *) pto_mem;
+
+
 	//Cola de mensajes
 
 	if ((id_queue = msgget(key_q, IPC_CREAT|0666)) == -1)
@@ -83,8 +72,6 @@ int main(int argc, char *argv[]){
   
 	//Fabricas
 
-  	*contador_envios = 0;
-
 	for(i=0; i<3; i++)
 	{
 		ensambladora = fork();
@@ -96,7 +83,6 @@ int main(int argc, char *argv[]){
 	srand(time(NULL) + getpid());
 
 	//envio de paquetes
-	printf("fin %d\n",fin );
 	if(!ensambladora){
 		while(cont != fin){	
 
@@ -112,7 +98,6 @@ int main(int argc, char *argv[]){
 			{ 
 	  			perror("Envio fallido");
 	  		} else{
-	  			(*contador_envios)++;
 	  			cont++;
 	  		}
 
@@ -121,44 +106,31 @@ int main(int argc, char *argv[]){
 	}else
 	{
 		signal(2, exit_signal);
-		printf("\n_______________________ Fábrica Ensambladora _______________________\n\n");
+		printf("\nFábrica Ensambladora\n");
 		while(cont != fin)
 		{
 			if(msgrcv(id_queue, (void *)&paquete, sizeof(data_queue), (long) 0, 0) == -1) 
         		perror("errormsgrcv\n");
     		else{ 
-    			printf("Planta emisora: %d cantidad de piezas recibidas: %d\n", paquete.contenido.planta, paquete.contenido.cantidad_pieza);
+    			printf("Planta emisora: %d \nPiezas recibidas: %d\n", paquete.contenido.planta, paquete.contenido.cantidad_pieza);
     			total += paquete.contenido.cantidad_pieza;
     			fflush(stdout);
     			cont++;
     		}
 
 		}
+	printf("Total piezas recibidas: %d\n", total);
 	}
-
+	
 	result[1] = total;
+	exit_signal();
 	return 0;
 }
 
-void exit_signal(int num)
+void exit_signal()
 {
- 	key_t key_mem = ftok(".", 666);
 	key_t key_queue = ftok(".", 420);
-	int  id_mem, id_queue;
-	
-	//Eliminar sección de memoria compartida
-	
-	if((id_mem = shmget(key_mem, sizeof(int), 0666)) < 0) 
-  	{
-		perror("shmget");
-		exit(EXIT_FAILURE);
- 	}
-	
-	if (shmctl(id_mem, IPC_RMID, 0) < 0) 
-	{
-		perror("shmctl(IPC_RMID)");
-		exit(EXIT_FAILURE);
-	}	
+	int  id_queue;
 	
 	//Eliminar cola de mensajes
 
@@ -178,8 +150,5 @@ void exit_signal(int num)
 	    perror("Error al eliminar el semaforo");
    		exit(EXIT_FAILURE);
   	}
-
-	system("clear");
-	printf("Hasta luego!\n");
     exit(EXIT_SUCCESS); 
 }

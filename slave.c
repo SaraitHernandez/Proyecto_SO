@@ -10,6 +10,8 @@
 #include <sys/shm.h>
 #include <signal.h>
 #include <sys/sem.h>
+
+
 #define SEM_ID 0x10101011
 
 int llamadaSemaforo(int semId, int semNum, int op) 
@@ -23,7 +25,7 @@ int llamadaSemaforo(int semId, int semNum, int op)
 
 void exit_signal(int);
 
-void run_function(int );
+void run_function(int , char * );
 
 int main(int argc, char **argv)
 {
@@ -36,17 +38,17 @@ int main(int argc, char **argv)
   
   int puerto, conexion;
   char buffer[200];
-  char *a, *cl, *fn, msg[200], *tp, error[50];
+  char *a, *cl, *op, *in, msg[200], *tp, error[50];
   int n;
   pid_t porcess;
   key_t key = ftok(".", 1234);
-  int id_mem, *result;
+  int id_mem;
   void *pto_mem;
-
-
+  signal(2, exit_signal);
+  char * result;  
   //Memoria compartida
 
-  if ((id_mem = shmget(key,  3 * sizeof(int), IPC_CREAT|0666)) < 0)
+  if ((id_mem = shmget(key,  4 * sizeof(char *), IPC_CREAT|0666)) < 0)
   {
     perror("shmget");
     exit(EXIT_FAILURE);
@@ -57,7 +59,7 @@ int main(int argc, char **argv)
     exit(EXIT_FAILURE);
   }
 
-  result = (int *) pto_mem;
+  result = (char *) pto_mem;
 
   int sem;
 
@@ -127,17 +129,17 @@ int main(int argc, char **argv)
       tp =  strtok(buffer, " ");
       if (strcmp(tp, "0") == 0)
       {
-        fn =  strtok(NULL, " ");
-        cl =  strtok(NULL, " ");
-        printf("fd_client[%s], función a correr: %s\n",cl, fn);
+        op = strtok(NULL, " ");
+        in = strtok(NULL, " ");
+        cl = strtok(NULL, " ");
         porcess = fork();
         if(!porcess)
         {
           //verifica la función que desea correr, la corre, retorna el resuldo
           llamadaSemaforo(sem, 0, -1);
 
-          run_function(atoi(fn));
-          snprintf(msg, sizeof(msg), "%s %d ", cl, result[atoi(fn)]);
+          run_function(atoi(op), in);
+          snprintf(msg, sizeof(msg), "%s %s ", cl, result[atoi(op)]);
           n= send(conexion, msg, 200, 0);
           if(n < 0)
             printf("error send\n");
@@ -145,44 +147,49 @@ int main(int argc, char **argv)
           llamadaSemaforo(sem, 0, 1);
         }else
           continue; //sigue escuchando por si le mandan a correr otra cosa
-      }else 
+      }else if (strcmp(tp, "1") == 0)
+      { 
+        close(conexion);
+        exit_signal(2);
+      }else
         printf("%s\n",error);
     }
-
-    
+    sleep (4);
+    system("clear");
   }
   return 0;
 }
 
-void run_function(int fn)
+void run_function(int op, char *in)
 {
   int child;
   pid_t p;
-  char *programs[4];
-
+  char *programs[2];
+  programs[1] = in;
 
   p = fork();
   if(!p)
   {
-    switch(fn)
+    switch(op)
     {
-      case 0:
-        programs[0] = "./suma";
-        programs[1] = "5";
-        programs[2] = "8";
-        programs[3] = NULL;
-        if(execvp(programs[0], programs) < 0)
-          perror("exec");
-        exit(1);
       case 1:
         programs[0] = "./fabrica";
-        programs[1] = "2";
-        programs[2] = NULL;
         if(execvp(programs[0], programs) < 0)
           perror("exec");
         exit(1);
       case 2:
-        if(execvp(programs[2], programs) < 0)
+        programs[0] = "./collatz_t";
+        if(execvp(programs[0], programs) < 0)
+          perror("exec");
+        exit(1);
+      case 3:
+        programs[0] = "./collatz_p";
+        if(execvp(programs[0], programs) < 0)
+          perror("exec");
+        exit(1);
+      case 4:
+        programs[0] = "./fibonacci";
+        if(execvp(programs[0], programs) < 0)
           perror("exec");
         exit(1);
     } 
@@ -191,8 +198,6 @@ void run_function(int fn)
     wait(&child);
     if(child)
       printf("error execvp\n");
-    else
-      printf("Finalizó la ejecución de la función requerida\n");
   }
 
 }

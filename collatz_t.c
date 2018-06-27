@@ -1,66 +1,46 @@
 #include <stdio.h>
 #include <stdlib.h>
-#include <unistd.h>
-#include <sys/types.h>
 #include <pthread.h>
-#include <signal.h>
 #include <string.h>
-#include  <sys/ipc.h>
-#include  <sys/shm.h>
-#include <sys/time.h>
-#include <time.h>
+
+char buffer[200];
 
 typedef struct {
 	unsigned int id;
 	int n;
 }t_hilo;
+
 void * manejador_hilos(void * pto) {
 	t_hilo *aux = (t_hilo *)pto; 
 	int n = aux->n;
+	char num[10];
 	while(n!=1){
-		if (n%2 == 0) {
+		snprintf(num, sizeof(num), "%d, ", n);
+		strcat(buffer, num);
+		if (n%2 == 0)
 			n = n/2;
-		} else {
+		else
 			n = 3*n + 1;
-		}
-		
 	}
-	printf("%s %d\n", "Se cumple para el numero", aux->n);
-	pthread_exit (( void *)(&(n)));
+	pthread_exit ((void *)(&(n)));
 }
 
-int main() {
+int main(int argc, char *argv[]) {
 
-	int *values = (int*)malloc(sizeof(int));
-	pthread_t *info_hilos = (pthread_t*)malloc(sizeof(pthread_t));
-	int count = 0;
+	pthread_t info_hilos;
+	int n;
+	n = atof ( argv [1]);
+
+	t_hilo parametros_hilos;
 	
-	printf("%s\n", "intruduzca tanto numero como desee, 0 para terminar de introducir.");
-	while(1){
-		int n;
-		scanf("%d", &n);
-		if (n==0) {
-			break;
-		} else {
-			values[count] = n;
-			values = (int*)realloc(values, (count+2)* sizeof(int));
-			info_hilos = (pthread_t*)realloc(info_hilos, (count+2)* sizeof(pthread_t));
-			count++;
-		}
-	}
+	parametros_hilos.id = 1;
+	parametros_hilos.n = n;
+	pthread_create(&info_hilos,NULL,&manejador_hilos,(void *)&parametros_hilos);
 
-	t_hilo parametros_hilos[count];
-	for (int i = 0; i < count; ++i) {
-		parametros_hilos[i].id = i;
-		parametros_hilos[i].n = values[i];
-		pthread_create(&info_hilos[i],NULL,&manejador_hilos,(void *)&parametros_hilos[i]);
-	}
-
-	for (int i = 0; i < count; i++) {
-		t_hilo *retorno;
-	    pthread_join(info_hilos[i], (void **)&retorno);
- 	}
-
+	t_hilo *retorno;
+	pthread_join(info_hilos, (void **)&retorno);
+ 
+	//strcpy(result[1], buffer); 
 
 	return 0;
 }
