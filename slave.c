@@ -155,7 +155,6 @@ int main(int argc, char **argv)
         printf("%s\n",error);
     }
     sleep (4);
-    system("clear");
   }
   return 0;
 }

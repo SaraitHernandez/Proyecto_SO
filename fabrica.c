@@ -23,6 +23,8 @@ int llamadaSemaforo(int semId, int semNum, int op)
 void exit_signal();
 
 int main(int argc, char *argv[]){
+	system("clear");
+	printf("\nFábrica Ensambladora\n");
 
 	key_t key_r = ftok(".", 1234);
 	key_t key_q = ftok(".", 420);
@@ -106,7 +108,6 @@ int main(int argc, char *argv[]){
 	}else
 	{
 		signal(2, exit_signal);
-		printf("\nFábrica Ensambladora\n");
 		while(cont != fin)
 		{
 			if(msgrcv(id_queue, (void *)&paquete, sizeof(data_queue), (long) 0, 0) == -1) 
@@ -119,7 +120,7 @@ int main(int argc, char *argv[]){
     		}
 
 		}
-	printf("Total piezas recibidas: %d\n", total);
+		printf("Total piezas recibidas: %d\n", total);
 	}
 	
 	result[1] = total;

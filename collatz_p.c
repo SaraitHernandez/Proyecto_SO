@@ -5,15 +5,18 @@
 #include <sys/types.h>
 #include <sys/wait.h>
 
-
 char buffer[200];
 
-int main(){
+int main(int argc, char *argv[]){
+	
+	system("clear");
+	printf("\n_______________________Conjetura de Collatz_______________________\n\n");
 	
 	pid_t ProcessChild, w;
-	int i, n = 11, wstatus; 
+	int i, n, wstatus; 
 	char num[10];
 
+	n = atof ( argv [1])
 	ProcessChild = fork();
 
 	if(!ProcessChild) {

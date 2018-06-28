@@ -27,6 +27,9 @@ void * manejador_hilos(void * pto) {
 
 int main(int argc, char *argv[]) {
 
+	system("clear");
+	printf("\nConjetura de Collatz_H\n\n");
+
 	pthread_t info_hilos;
 	int n;
 	n = atof ( argv [1]);
